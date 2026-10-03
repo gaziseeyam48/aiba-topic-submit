@@ -11,7 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-type SubmitStatus = "idle" | "loading" | "success" | "conflict" | "duplicate" | "error";
+type SubmitStatus = "idle" | "loading" | "confirming" | "success" | "conflict" | "duplicate" | "error";
 
 interface AlertInfo {
   status: SubmitStatus;
@@ -27,7 +27,7 @@ export default function HomePage() {
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
 
   const isLoading = submitStatus === "loading";
-  const isLocked = submitStatus === "success" || submitStatus === "duplicate";
+  const isLocked = submitStatus === "success" || submitStatus === "duplicate" || submitStatus === "confirming";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,8 +49,13 @@ export default function HomePage() {
       const data = await res.json();
 
       if (res.ok) {
-        setSubmitStatus("success");
-        setAlertInfo({ status: "success", message: data.message });
+        if (data.requireConfirmation) {
+          setSubmitStatus("confirming");
+          setAlertInfo({ status: "confirming", message: data.message });
+        } else {
+          setSubmitStatus("success");
+          setAlertInfo({ status: "success", message: data.message });
+        }
       } else if (res.status === 409) {
         if (data.error === "duplicate_student") {
           setSubmitStatus("duplicate");
@@ -63,6 +68,44 @@ export default function HomePage() {
             conflictReason: data.conflictReason,
           });
         }
+      } else {
+        setSubmitStatus("error");
+        setAlertInfo({
+          status: "error",
+          message: data.error || "Something went wrong. Please try again.",
+        });
+      }
+    } catch {
+      setSubmitStatus("error");
+      setAlertInfo({
+        status: "error",
+        message: "Unable to connect. Please check your internet connection.",
+      });
+    }
+  }
+
+  async function handleConfirmSubmit() {
+    if (submitStatus !== "confirming") return;
+
+    setSubmitStatus("loading");
+    setAlertInfo(null);
+
+    try {
+      const res = await fetch("/api/submit-topic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: studentId.trim(),
+          topicTitle: topicTitle.trim(),
+          confirm: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSubmitStatus("success");
+        setAlertInfo({ status: "success", message: data.message });
       } else {
         setSubmitStatus("error");
         setAlertInfo({
@@ -129,6 +172,41 @@ export default function HomePage() {
               transition={{ duration: 0.2 }}
               className="mb-6"
             >
+              {alertInfo.status === "confirming" && (
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-indigo-300">
+                        Topic is Unique!
+                      </p>
+                      <p className="text-xs text-indigo-300/80 mt-1 leading-relaxed">
+                        Your topic passed the uniqueness check. Please confirm to finally submit it.
+                      </p>
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleConfirmSubmit}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          Confirm Submission
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleTryAnother}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {alertInfo.status === "success" && (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                   <div className="flex items-start gap-3">
@@ -277,6 +355,8 @@ export default function HomePage() {
               </>
             ) : submitStatus === "duplicate" ? (
               <span>Already Submitted</span>
+            ) : submitStatus === "confirming" ? (
+              <span>Waiting for confirmation...</span>
             ) : (
               <>
                 <span>Submit Topic</span>

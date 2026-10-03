@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const studentId: string = (body.studentId ?? "").trim();
     const topicTitle: string = (body.topicTitle ?? "").trim();
+    const confirm: boolean = !!body.confirm;
 
     // ── 1. Input validation ──────────────────────────────────────────────────
     if (!studentId || !topicTitle) {
@@ -124,8 +125,15 @@ export async function POST(req: NextRequest) {
       .filter((doc) => doc.data().status === "approved")
       .map((doc) => doc.data().topicTitle as string);
 
-    // ── 4. If no existing topics, save immediately ───────────────────────────
+    // ── 4. If no existing topics, handle immediately ───────────────────────────
     if (existingTopics.length === 0) {
+      if (!confirm) {
+        return NextResponse.json(
+          { message: "Topic is unique. Ready to submit.", requireConfirmation: true },
+          { status: 200 }
+        );
+      }
+
       await db.collection(COLLECTION).add({
         studentId,
         topicTitle,
@@ -152,6 +160,13 @@ export async function POST(req: NextRequest) {
           similarityScore: evaluation.similarityScore,
         },
         { status: 409 }
+      );
+    }
+
+    if (!confirm) {
+      return NextResponse.json(
+        { message: "Topic is unique. Ready to submit.", requireConfirmation: true },
+        { status: 200 }
       );
     }
 
