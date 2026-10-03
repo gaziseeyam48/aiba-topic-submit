@@ -226,7 +226,7 @@ export default function HomePage() {
               type="text"
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
-              placeholder="e.g. 2024-1-60-001"
+              placeholder="e.g. 25230115044"
               disabled={isLoading || isLocked}
               maxLength={50}
               className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-400 text-sm focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
