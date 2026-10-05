@@ -74,3 +74,35 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const authHeader = req.headers.get("x-admin-key");
+  const secret = process.env.ADMIN_SECRET_KEY;
+
+  if (!secret || authHeader !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing topic ID." },
+        { status: 400 }
+      );
+    }
+
+    const db = getAdminDb();
+    await db.collection("term_paper_topics").doc(id).delete();
+
+    return NextResponse.json({ message: "Topic deleted successfully." }, { status: 200 });
+  } catch (err) {
+    console.error("admin/topics DELETE error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete topic." },
+      { status: 500 }
+    );
+  }
+}

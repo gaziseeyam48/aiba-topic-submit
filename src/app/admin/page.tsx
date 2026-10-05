@@ -22,6 +22,7 @@ import {
   Edit2,
   Save,
   X,
+  Trash2,
 } from "lucide-react";
 
 interface TopicRow {
@@ -53,6 +54,7 @@ export default function AdminPage() {
   const [editStudentId, setEditStudentId] = useState("");
   const [editTopicTitle, setEditTopicTitle] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("serial");
@@ -209,6 +211,28 @@ export default function AdminPage() {
     setEditingId(topic.id);
     setEditStudentId(topic.studentId);
     setEditTopicTitle(topic.topicTitle);
+  }
+
+  async function deleteTopic(id: string) {
+    if (!confirm("Are you sure you want to delete this topic? This action cannot be undone.")) return;
+    
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/topics?id=${id}`, {
+        method: "DELETE",
+        headers: { "x-admin-key": adminKey },
+      });
+
+      if (res.ok) {
+        setTopics((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        alert("Failed to delete topic.");
+      }
+    } catch (err) {
+      alert("Network error.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   // ─── Login Screen ────────────────────────────────────────────────────────────
@@ -549,13 +573,27 @@ export default function AdminPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => startEditing(topic)}
-                              className="p-1.5 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => startEditing(topic)}
+                                className="p-1.5 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteTopic(topic.id)}
+                                disabled={deletingId === topic.id}
+                                className="p-1.5 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-50"
+                                title="Delete"
+                              >
+                                {deletingId === topic.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
                           )}
                         </td>
                       </motion.tr>
