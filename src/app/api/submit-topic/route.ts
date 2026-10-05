@@ -19,7 +19,7 @@ async function checkSemanticOverlap(
   // New SDK: @google/genai — Interactions API
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
-  const prompt = `You are an academic reviewer. Your task is to check whether a student's proposed term paper topic is too similar to any already registered topic.
+  const prompt = `You are an academic reviewer. Your task is to check whether a student's proposed term paper topic is essentially the SAME topic as any already registered topic.
 
 REGISTERED TOPICS:
 ${existingTopics.map((t, i) => `${i + 1}. "${t}"`).join("\n")}
@@ -27,13 +27,25 @@ ${existingTopics.map((t, i) => `${i + 1}. "${t}"`).join("\n")}
 PROPOSED TOPIC:
 "${candidateTopic}"
 
-CRITERIA:
-- Score >= 70: REJECT — topic covers the same core subject, research question, or case study as an existing topic.
-- Score < 70: ACCEPT — topic is distinct.
+IMPORTANT — BE LENIENT. Only reject a topic if it is almost identical to an existing one. Two topics sharing a broad theme or general subject area is NOT enough to reject. Focus on whether the specific research question, angle, and scope are the same.
+
+CRITERIA FOR SIMILARITY SCORE:
+- 85-100: REJECT — the proposed topic asks essentially the same research question with the same scope as an existing topic. They would produce nearly the same paper.
+- 60-84: ACCEPT — topics share a general theme or subject area but explore different angles, focus on different aspects, or ask different research questions. This is ALLOWED.
+- 0-59: ACCEPT — topics are clearly different.
+
+EXAMPLES OF ACCEPTABLE (NOT conflicting) PAIRS:
+- "The Impact of Digital Communication on Employee Misunderstandings" vs "What Common Communication Barriers Most Significantly Undermine Workplace Effectiveness?" → These share the broad theme of communication issues at work, but one focuses specifically on DIGITAL communication causing misunderstandings, while the other asks about GENERAL communication barriers affecting overall effectiveness. Different angle, different scope. ACCEPT.
+- "Social Media's Role in Political Polarization" vs "The Effect of Social Media on Teen Mental Health" → Both involve social media, but completely different research questions. ACCEPT.
+
+EXAMPLES OF CONFLICTING (should reject) PAIRS:
+- "How Remote Work Affects Employee Productivity" vs "The Impact of Working From Home on Worker Productivity" → Same research question, just reworded. REJECT.
+- "The Role of AI in Modern Healthcare Diagnostics" vs "Artificial Intelligence Applications in Medical Diagnosis" → Essentially identical topic. REJECT.
 
 RULES:
 - Never reveal or quote the exact titles of registered topics.
 - If rejecting, give a very simple, 1-sentence explanation of why it overlaps, in clear everyday language for a student. Do not use technical jargon or mention AI.
+- When in doubt, ACCEPT the topic. Be generous to students.
 - Respond ONLY with valid JSON. No markdown fences.
 
 {
@@ -150,7 +162,7 @@ export async function POST(req: NextRequest) {
     // ── 5. Semantic overlap check via Gemini ─────────────────────────────────
     const evaluation = await checkSemanticOverlap(topicTitle, existingTopics);
 
-    if (!evaluation.isUnique || evaluation.similarityScore >= 70) {
+    if (!evaluation.isUnique || evaluation.similarityScore >= 85) {
       return NextResponse.json(
         {
           error: "topic_conflict",
